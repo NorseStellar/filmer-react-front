@@ -1,0 +1,104 @@
+main {
+   max-width: 1000px;
+   margin: 0 auto;
+   padding: 2rem;
+   font-family: Arial, sans-serif;
+}
+
+h1 {
+   text-align: center;
+   margin-bottom: 1rem;
+}
+
+.film-form {
+   display: flex;
+   flex-direction: column;
+   gap: 0.5rem;
+   margin-bottom: 2rem;
+}
+
+.film-form input {
+   padding: 0.5rem;
+   width: 100%;
+   box-sizing: border-box;
+   border: 1px solid #ccc;
+   border-radius: 4px;
+}
+
+.film-form button {
+   padding: 0.5rem 1rem;
+   width: fit-content;
+   background-color: #477588;
+   color: white;
+   border: none;
+   border-radius: 4px;
+   cursor: pointer;
+   align-self: flex-start;
+}
+
+.film-form button:hover {
+   background-color: #29aca1;
+}
+
+/* Kortcontainer */
+.card-container {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 1rem;
+   justify-content: center;
+}
+
+/* Kort */
+.card {
+   border: 1px solid #b6b5b5;
+   border-radius: 8px;
+   padding: 1rem;
+   width: 220px;
+   background-color: #f3ecec;
+   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+   display: flex;
+   flex-direction: column;
+   justify-content: space-between;
+}
+
+.card h3 {
+   margin-top: 0;
+}
+
+.card p {
+   margin: 0.3rem 0;
+}
+
+.card button {
+   margin-top: 0.5rem;
+   padding: 0.4rem 0.8rem;
+   cursor: pointer;
+   background-color: #d4cbcc;
+   color: rgb(0, 0, 0);
+   border: none;
+   border-radius: 4px;
+   border: 1px solid #b6b5b5;
+}
+
+.card button:hover {
+   background-color: #f76b5b;
+}
+
+/* Responsiva media queries. */
+@media (max-width: 768px) {
+   .card-container {
+      justify-content: center;
+   }
+   .card {
+      width: 45%;
+   }
+}
+
+@media (max-width: 480px) {
+   .film-form button {
+      width: 100%;
+   }
+   .card {
+      width: 90%;
+   }
+}
