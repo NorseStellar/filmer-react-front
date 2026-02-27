@@ -1,56 +1,139 @@
-const CACHE_NAME = "filmer-cache-v1";
+const STATIC_CACHE = "static-cache-v2";
+const API_CACHE = "api-cache-v2";
+
 const urlsToCache = ["/", "/index.html", "/manifest.json", "/icons/icon-192x192.png", "/icons/icon-512x512.png"];
 
-// INSTALL: cache statiska filer
+// Installerar.
 self.addEventListener("install", (event) => {
-   event.waitUntil(
-      caches.open(CACHE_NAME).then((cache) => {
-         return cache.addAll(urlsToCache);
-      }),
-   );
+   event.waitUntil(caches.open(STATIC_CACHE).then((cache) => cache.addAll(urlsToCache)));
+   self.skipWaiting();
 });
 
-// ACTIVATE: rensa gamla cache-versioner
+// Aktiverar.
 self.addEventListener("activate", (event) => {
    event.waitUntil(
       caches.keys().then((keys) =>
          Promise.all(
             keys.map((key) => {
-               if (key !== CACHE_NAME) return caches.delete(key);
+               if (key !== STATIC_CACHE && key !== API_CACHE) {
+                  return caches.delete(key);
+               }
             }),
          ),
       ),
    );
+   self.clients.claim();
 });
 
-// FETCH: försök hämta från nätet först, annars cache
+// Fetch.
 self.addEventListener("fetch", (event) => {
    const requestURL = new URL(event.request.url);
 
-   // Om det är API-förfrågan till /api/filmer
-   if (requestURL.pathname.startsWith("/api/filmer")) {
+   // GET filmer - network first.
+   if (requestURL.pathname.startsWith("/api/filmer") && event.request.method === "GET") {
       event.respondWith(
          fetch(event.request)
             .then((response) => {
-               // Klona responsen och spara i cache
                const resClone = response.clone();
-               caches.open(CACHE_NAME).then((cache) => {
+               caches.open(API_CACHE).then((cache) => {
                   cache.put(event.request, resClone);
                });
                return response;
             })
-            .catch(() => {
-               // Om offline: returnera från cache om den finns
-               return caches.match(event.request);
-            }),
+            .catch(() => caches.match(event.request)),
       );
       return;
    }
 
-   // Annars: statiska filer
+   // POST och DELETE - offline queue.
+   if (
+      requestURL.pathname.startsWith("/api/filmer") &&
+      (event.request.method === "POST" || event.request.method === "DELETE")
+   ) {
+      event.respondWith(
+         fetch(event.request).catch(async () => {
+            await saveRequest(event.request);
+            await self.registration.sync.register("sync-filmer");
+
+            notifyClient("offline-saved");
+
+            return new Response(JSON.stringify({ message: "Offline sparad för synk!" }), {
+               headers: { "Content-Type": "application/json" },
+            });
+         }),
+      );
+      return;
+   }
+
+   // Statiskt - cache first.
    event.respondWith(
       caches.match(event.request).then((response) => {
          return response || fetch(event.request);
       }),
    );
 });
+
+// Background sync.
+self.addEventListener("sync", (event) => {
+   if (event.tag === "sync-filmer") {
+      event.waitUntil(sendOfflineRequests());
+   }
+});
+
+// IndexedDB.
+function openDB() {
+   return new Promise((resolve, reject) => {
+      const request = indexedDB.open("filmer-offline-db", 1);
+
+      request.onupgradeneeded = () => {
+         request.result.createObjectStore("requests", { autoIncrement: true });
+      };
+
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+   });
+}
+
+async function saveRequest(request) {
+   const db = await openDB();
+   const tx = db.transaction("requests", "readwrite");
+   const store = tx.objectStore("requests");
+
+   const body = await request.clone().text();
+
+   store.add({
+      url: request.url,
+      method: request.method,
+      body: body,
+      headers: [...request.headers],
+   });
+}
+
+async function sendOfflineRequests() {
+   const db = await openDB();
+   const tx = db.transaction("requests", "readwrite");
+   const store = tx.objectStore("requests");
+
+   const allRequests = store.getAll();
+
+   allRequests.onsuccess = async () => {
+      for (const req of allRequests.result) {
+         await fetch(req.url, {
+            method: req.method,
+            body: req.body,
+            headers: req.headers,
+         });
+      }
+      store.clear();
+      notifyClient("synced");
+   };
+}
+
+// Skicka meddelande till React.
+function notifyClient(type) {
+   self.clients.matchAll().then((clients) => {
+      clients.forEach((client) => {
+         client.postMessage(type);
+      });
+   });
+}

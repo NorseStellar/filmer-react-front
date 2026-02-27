@@ -1,3 +1,4 @@
+import React from "react";
 import "./App.css";
 import { useEffect, useState } from "react";
 import MovieCard from "./components/MovieCard";
@@ -27,6 +28,22 @@ function App() {
 
    useEffect(() => {
       fetchFilmer();
+   }, []);
+
+   // Lyssna på offline POST/DELETE sync från service-workern.
+   useEffect(() => {
+      if ("serviceWorker" in navigator) {
+         navigator.serviceWorker.addEventListener("message", (event) => {
+            if (event.data === "offline-saved") {
+               setStatus("Sparad offline och synkas senare");
+            }
+
+            if (event.data === "synced") {
+               setStatus("Offline-ändringar är synkade!");
+               fetchFilmer(); // Hämta uppdaterad lista efter sync.
+            }
+         });
+      }
    }, []);
 
    const addFilm = async (e) => {
