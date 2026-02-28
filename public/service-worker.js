@@ -1,6 +1,6 @@
-const STATIC_CACHE = "static-cache-v4";
-const API_CACHE = "api-cache-v4";
-const RUNTIME_CACHE = "runtime-cache-v2";
+const STATIC_CACHE = "static-cache-v5";
+const API_CACHE = "api-cache-v5";
+const RUNTIME_CACHE = "runtime-cache-v3";
 
 const urlsToCache = ["/", "/index.html", "/manifest.json", "/icons/icon-192x192.png", "/icons/icon-512x512.png"];
 
@@ -66,8 +66,8 @@ self.addEventListener("fetch", (event) => {
       return;
    }
 
-   // VITE assets (/assets/*.js, *.css)
-   if (requestURL.pathname.includes("/assets/")) {
+   // 🧠 VITE JS + CSS (module scripts & styles)
+   if (event.request.destination === "script" || event.request.destination === "style") {
       event.respondWith(
          caches.match(event.request).then((response) => {
             return (
