@@ -39,7 +39,9 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
    const requestURL = new URL(event.request.url);
 
-   // GET /api/filmer  (network first)
+   // ==================
+   // GET /api/filmer (network first)
+   // ==================
    if (requestURL.pathname.startsWith("/api/filmer") && event.request.method === "GET") {
       event.respondWith(
          fetch(event.request)
@@ -55,7 +57,9 @@ self.addEventListener("fetch", (event) => {
       return;
    }
 
+   // ==================
    // POST / DELETE (offline queue)
+   // ==================
    if (
       requestURL.pathname.startsWith("/api/filmer") &&
       (event.request.method === "POST" || event.request.method === "DELETE")
@@ -75,8 +79,9 @@ self.addEventListener("fetch", (event) => {
       return;
    }
 
-   // Vite assets (/assets/)
-   // Ersätter denna med mer robust .includes: if (requestURL.pathname.startsWith("/assets/")) {
+   // ==================
+   // VITE ASSETS (/assets/)
+   // ==================
    if (requestURL.pathname.includes("/assets/")) {
       event.respondWith(
          caches.open(RUNTIME_CACHE).then(async (cache) => {
@@ -92,22 +97,16 @@ self.addEventListener("fetch", (event) => {
       return;
    }
 
-   // Allt annat (cache first + runtime fallback)
+   // ==================
+   // ALLT ANNAT (cache first)
+   // ==================
    event.respondWith(
       caches.match(event.request).then((response) => {
-         if (response) return response;
-
-         return fetch(event.request).then((res) => {
-            const clone = res.clone();
-            caches.open(RUNTIME_CACHE).then((cache) => {
-               cache.put(event.request, clone);
-            });
-            return res;
-         });
+         return response || fetch(event.request);
       }),
    );
 });
-// ************************************************
+// End of fetch. ****************************************
 
 // Background sync.
 self.addEventListener("sync", (event) => {
