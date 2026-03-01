@@ -1,36 +1,45 @@
-const STATIC_CACHE = "static-cache-v5";
-const API_CACHE = "api-cache-v5";
-const RUNTIME_CACHE = "runtime-cache-v3";
+const STATIC_CACHE = "static-cache-v6";
+const API_CACHE = "api-cache-v6";
+const RUNTIME_CACHE = "runtime-cache-v4";
 
 const urlsToCache = ["/", "/index.html", "/manifest.json", "/icons/icon-192x192.png", "/icons/icon-512x512.png"];
 
-// INSTALL
+// Installerar.
 self.addEventListener("install", (event) => {
-   event.waitUntil(caches.open(STATIC_CACHE).then((cache) => cache.addAll(urlsToCache)));
-   self.skipWaiting();
+   self.skipWaiting(); // räcker EN gång
+
+   event.waitUntil(
+      caches.open(STATIC_CACHE).then((cache) => {
+         return cache.addAll(urlsToCache);
+      }),
+   );
 });
 
-// ACTIVATE
+// Aktiverar.
 self.addEventListener("activate", (event) => {
    event.waitUntil(
-      caches.keys().then((keys) =>
-         Promise.all(
-            keys.map((key) => {
-               if (key !== STATIC_CACHE && key !== API_CACHE && key !== RUNTIME_CACHE) {
-                  return caches.delete(key);
-               }
-            }),
-         ),
-      ),
+      caches
+         .keys()
+         .then((keys) => {
+            return Promise.all(
+               keys.map((key) => {
+                  if (key !== STATIC_CACHE && key !== API_CACHE && key !== RUNTIME_CACHE) {
+                     return caches.delete(key);
+                  }
+               }),
+            );
+         })
+         .then(() => {
+            return self.clients.claim(); // VIKTIGT – måste vara här inne
+         }),
    );
-   self.clients.claim();
 });
 
-// FETCH
+// Fetch. *********
 self.addEventListener("fetch", (event) => {
    const requestURL = new URL(event.request.url);
 
-   // GET filmer – network first
+   // GET /api/filmer  (network first)
    if (requestURL.pathname.startsWith("/api/filmer") && event.request.method === "GET") {
       event.respondWith(
          fetch(event.request)
@@ -46,7 +55,7 @@ self.addEventListener("fetch", (event) => {
       return;
    }
 
-   // POST / DELETE – offline queue
+   // POST / DELETE (offline queue)
    if (
       requestURL.pathname.startsWith("/api/filmer") &&
       (event.request.method === "POST" || event.request.method === "DELETE")
@@ -66,41 +75,47 @@ self.addEventListener("fetch", (event) => {
       return;
    }
 
-   // 🧠 VITE JS + CSS (module scripts & styles)
-   if (event.request.destination === "script" || event.request.destination === "style") {
+   // Vite assets (/assets/)
+   if (requestURL.pathname.startsWith("/assets/")) {
       event.respondWith(
-         caches.match(event.request).then((response) => {
-            return (
-               response ||
-               fetch(event.request).then((res) => {
-                  const clone = res.clone();
-                  caches.open(RUNTIME_CACHE).then((cache) => {
-                     cache.put(event.request, clone);
-                  });
-                  return res;
-               })
-            );
+         caches.open(RUNTIME_CACHE).then(async (cache) => {
+            try {
+               const response = await fetch(event.request);
+               cache.put(event.request, response.clone());
+               return response;
+            } catch {
+               return await cache.match(event.request);
+            }
          }),
       );
       return;
    }
 
-   // Allt annat – cache first
+   // Allt annat (cache first + runtime fallback)
    event.respondWith(
       caches.match(event.request).then((response) => {
-         return response || fetch(event.request);
+         if (response) return response;
+
+         return fetch(event.request).then((res) => {
+            const clone = res.clone();
+            caches.open(RUNTIME_CACHE).then((cache) => {
+               cache.put(event.request, clone);
+            });
+            return res;
+         });
       }),
    );
 });
+// ************************************************
 
-// Background Sync
+// Background sync.
 self.addEventListener("sync", (event) => {
    if (event.tag === "sync-filmer") {
       event.waitUntil(sendOfflineRequests());
    }
 });
 
-// IndexedDB
+// Indexed DB.
 function openDB() {
    return new Promise((resolve, reject) => {
       const request = indexedDB.open("filmer-offline-db", 1);
@@ -151,7 +166,7 @@ async function sendOfflineRequests() {
    };
 }
 
-// Meddelande till React
+// Meddelande till React.
 function notifyClient(type) {
    self.clients.matchAll().then((clients) => {
       clients.forEach((client) => {
