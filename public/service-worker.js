@@ -97,9 +97,7 @@ self.addEventListener("fetch", (event) => {
       return;
    }
 
-   // ==================
    // ALLT ANNAT (cache first)
-   // ==================
    event.respondWith(
       caches.match(event.request).then((response) => {
          return response || fetch(event.request);
@@ -146,6 +144,25 @@ async function saveRequest(request) {
    });
 }
 
+// async function sendOfflineRequests() {
+//    const db = await openDB();
+//    const tx = db.transaction("requests", "readwrite");
+//    const store = tx.objectStore("requests");
+
+//    const allRequests = store.getAll();
+
+//    allRequests.onsuccess = async () => {
+//       for (const req of allRequests.result) {
+//          await fetch(req.url, {
+//             method: req.method,
+//             body: req.body,
+//             headers: req.headers,
+//          });
+//       }
+//       store.clear();
+//       notifyClient("synced");
+//    };
+// }
 async function sendOfflineRequests() {
    const db = await openDB();
    const tx = db.transaction("requests", "readwrite");
@@ -155,12 +172,18 @@ async function sendOfflineRequests() {
 
    allRequests.onsuccess = async () => {
       for (const req of allRequests.result) {
-         await fetch(req.url, {
-            method: req.method,
-            body: req.body,
-            headers: req.headers,
-         });
+         try {
+            await fetch(req.url, {
+               method: req.method,
+               body: req.body,
+               headers: req.headers,
+            });
+         } catch (err) {
+            console.log("Sync misslyckades, försöker igen senare");
+            return; // Avbryt om nätet fortfarande är nere
+         }
       }
+
       store.clear();
       notifyClient("synced");
    };
