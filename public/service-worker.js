@@ -76,7 +76,8 @@ self.addEventListener("fetch", (event) => {
    }
 
    // Vite assets (/assets/)
-   if (requestURL.pathname.startsWith("/assets/")) {
+   // Ersätter denna med mer robust .includes: if (requestURL.pathname.startsWith("/assets/")) {
+   if (requestURL.pathname.includes("/assets/")) {
       event.respondWith(
          caches.open(RUNTIME_CACHE).then(async (cache) => {
             try {
