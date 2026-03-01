@@ -10,7 +10,7 @@ function App() {
    const [titel, setTitel] = useState("");
    const [regissor, setRegissor] = useState("");
    const [ar, setAr] = useState("");
-   const [skadespealre, setSkadespealre] = useState("");
+   const [skadespelare, setSkadespelare] = useState("");
    const [rating, setRating] = useState("");
    const [status, setStatus] = useState("Laddar filmer...");
 
@@ -35,36 +35,52 @@ function App() {
       if ("serviceWorker" in navigator) {
          navigator.serviceWorker.addEventListener("message", (event) => {
             if (event.data === "offline-saved") {
-               setStatus("Sparad offline och synkas senare");
+               setStatus("Offline sparad och synkas senare!");
             }
 
             if (event.data === "synced") {
-               setStatus("Offline-ändringar är synkade!");
+               setStatus("Offline är synkad med servern!");
                fetchFilmer(); // Hämta uppdaterad lista efter sync.
             }
          });
       }
    }, []);
 
+   // Start addFilm. ***
    const addFilm = async (e) => {
       e.preventDefault();
-      await fetch(API_URL, {
-         method: "POST",
-         headers: { "Content-Type": "application/json" },
-         body: JSON.stringify({ titel, regissor, ar, skadespealre, rating }),
-      });
+
+      try {
+         await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ titel, regissor, ar, skadespelare, rating }),
+         });
+
+         fetchFilmer(); // Endast om online.
+      } catch (err) {
+         console.log("Offline – sparar via service worker");
+      }
+
       setTitel("");
       setRegissor("");
       setAr("");
-      setSkadespealre("");
+      setSkadespelare("");
       setRating("");
-      fetchFilmer();
    };
+   // End addFilm. ***
 
+   // Start deleteFilm. ***
    const deleteFilm = async (id) => {
-      await fetch(`${API_URL}/${id}`, { method: "DELETE" });
-      fetchFilmer();
+      try {
+         await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+
+         fetchFilmer(); // Endast om online.
+      } catch (err) {
+         console.log("Offline delete, sparas via service worker");
+      }
    };
+   // End deleteFilm. ***
 
    return (
       <main>
@@ -73,7 +89,7 @@ function App() {
             <input placeholder="Titel" value={titel} onChange={(e) => setTitel(e.target.value)} />
             <input placeholder="Regissör" value={regissor} onChange={(e) => setRegissor(e.target.value)} />
             <input placeholder="År" value={ar} onChange={(e) => setAr(e.target.value)} />
-            <input placeholder="Skådespelare" value={skadespealre} onChange={(e) => setSkadespealre(e.target.value)} />
+            <input placeholder="Skådespelare" value={skadespelare} onChange={(e) => setSkadespelare(e.target.value)} />
             <input placeholder="Rating" value={rating} onChange={(e) => setRating(e.target.value)} />
             <button>Lägg till film</button>
          </form>
